@@ -1,0 +1,11 @@
+gdp tp
+
+b main
+
+p &fp
+-> 0x7fffffffdf58
+p &input
+-> 0x7fffffffdf10
+
+x win
+-> 0x4011ba
