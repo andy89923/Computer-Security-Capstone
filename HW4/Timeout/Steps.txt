@@ -1,0 +1,8 @@
+strace ./Timeout
+-> clock_nanosleep(CLOCK_REALTIME, 0, {tv_sec=4294967295, tv_nsec=0}
+
+gdb Timeout
+b sleep
+return 0
+
+-> continue to end the program
