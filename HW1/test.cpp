@@ -80,7 +80,7 @@ int main(int argc, char *argv[]){
     }
 
     // 開一個 IPv4 的 RAW Socket , 並且準備收取 ICMP 封包
-    sd = socket(PF_INET, SOCK_RAW, IPPROTO_ICMP);
+    sd = socket(PF_INET, SOCK_RAW, IPPROTO_TCP);
     if(sd < 0){
         perror("socket");
         exit(-1);
