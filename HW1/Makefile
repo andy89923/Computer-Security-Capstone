@@ -12,4 +12,5 @@ test: test.cpp
 	$(CXX) -o test.o test.cpp
 
 clean:
+	sudo systemd-resolve --flush-caches
 	rm -f $(APP_NAME) *.o
