@@ -9,7 +9,7 @@
 #include <netinet/udp.h>  // Provides declarations for udp header
 using namespace std;
 
-#define DEFAUL_QUERY_NAME "www.google.com"
+#define DEFAUL_QUERY_NAME "google.com"
 
 // Checksum (from internet)
 unsigned short checksum(unsigned short *buf, int len){
@@ -68,12 +68,13 @@ struct query {
 };
 
 struct adt {
-	u_int8_t name;
-	unsigned short type;
-	unsigned short payload;
-	unsigned short flag;
-	unsigned short zval;
-	unsigned short len;
+	char name;
+	char type_1, type_2;
+	char size_1, size_2;
+	char rcode;
+	char edns0;
+	char z_1, z_2;
+	char len_1, len_2;
 };
 
 void construct_dns_hdr(dnshdr* h) {
@@ -102,12 +103,13 @@ void construct_dns_query(char *qury, char* host) {
 }
 
 void construct_add_rec(struct adt *ad) {
-    ad -> name    = htons(0xcc);
-    ad -> type    = htons(0x29);
-    ad -> payload = htons(0x0200);
-    ad -> flag    = 0;
-    ad -> zval    = 0;
-    ad -> len     = 0;
+    ad -> name    = 0;
+    ad -> type_1  = 0;     ad -> type_2 = 41;
+    ad -> size_1  = 0x10;  ad -> size_2 = 0x00;
+    ad -> rcode   = 0;
+    ad -> edns0   = 0;
+	ad -> z_1     = 0;     ad -> z_2    = 0;
+    ad -> len_1   = 0;     ad -> len_2  = 0;
 } 
 
 void construct_ip_hdr(struct iphdr *ip, int tot_len, char* source_ip, sockaddr_in addr) {
@@ -161,9 +163,9 @@ int main(int argc, char const *argv[]) {
 	adt *adtp;
     now_poi = now_poi + sizeof(struct query);
 	adtp = (adt*) &dns_data[now_poi];
-    constrct_add_rec(adtp);
+    construct_add_rec(adtp);
 
-    int dns_data_len = sizeof(struct dnshdr) + strlen((const char*) dns_name) + 1 + sizeof(struct adt);
+    int dns_data_len = sizeof(struct dnshdr) + strlen((const char*) dns_name) + 1 + sizeof(struct query) + sizeof(struct adt);
 
     // ~~~~~~~~~~~~~~ DNS QUERY DATA ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
 
@@ -196,8 +198,7 @@ int main(int argc, char const *argv[]) {
 	// UDP header
     // int udp_len = 8 + dns_data_len;
     int udp_data_len = sizeof(struct udphdr) + dns_data_len;
-    construct_udp_hdr(udp_header, udp_len, atoi(argv[2]));
-
+    construct_udp_hdr(udp_header, udp_data_len, atoi(argv[2]));
 
     int tmp_len = sizeof(struct udphdr) + dns_data_len;
 
