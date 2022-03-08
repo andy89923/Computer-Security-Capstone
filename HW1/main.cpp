@@ -105,7 +105,7 @@ void construct_dns_query(char *qury, char* host) {
 void construct_add_rec(struct adt *ad) {
     ad -> name    = 0;
     ad -> type_1  = 0;     ad -> type_2 = 41;
-    ad -> size_1  = 0x10;  ad -> size_2 = 0x00;
+    ad -> size_1  = 0xff;  ad -> size_2 = 0xff;
     ad -> rcode   = 0;
     ad -> edns0   = 0;
 	ad -> z_1     = 0;     ad -> z_2    = 0;
