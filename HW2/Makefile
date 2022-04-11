@@ -1,14 +1,23 @@
 CXX=g++
 
-# APP_NAME=mitm_attack pharm_attack
-# FILE_NAME=mitm_attack.cpp pharm_attack.cpp 
+MITM_NAME=mitm_attack
+MITM_FILE_NAME=mitm_attack.cpp
+
+PHAM_NAME=pharm_attack
+PHAM_FILE_NAME=pharm_attack.cpp
 
 # $(APP_NAME): $(FILE_NAME)
 # 	$(CXX) -o $(APP_NAME) $(FILE_NAME)
 
-# test: test.cpp
-# 	$(CXX) -o test.o test.cpp
+all: $(MITM_NAME) $(PHAM_NAME)
+	echo "Build finished!"
+
+$(MITM_NAME): $(MITM_FILE_NAME)
+	$(CXX) -o $(MITM_NAME) $(MITM_FILE_NAME)
+
+$(PHAM_NAME): $(PHAM_FILE_NAME)
+	$(CXX) -o $(PHAM_NAME) $(PHAM_FILE_NAME)
 
 clean:
 	sudo systemd-resolve --flush-caches
-	rm -f $(APP_NAME) *.o
+	rm -f $(PHAM_NAME) $(MITM_NAME) *.o
