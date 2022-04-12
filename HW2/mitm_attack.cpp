@@ -2,7 +2,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
-
+#include <iomanip>
 
 #include <netinet/if_ether.h>
 #include <netinet/in.h>
@@ -86,12 +86,10 @@ int main(int argc, char const *argv[]) {
 	char src_ip[4], dst_ip[4];
 	int index;
 	
-	dst_ip[0] = 192;
-	dst_ip[1] = 168;
-	dst_ip[2] = 0;
-	dst_ip[3] = 127;
-
 	getInfo(src_ip, src_mac_addr, index);
+
+	for (int i = 0; i < 3; i++) dst_ip[i] = src_ip[i];
+	dst_ip[3] = 127;
 
 	char buf[ETHER_ARP_PACKET_LEN];
 	memset(buf, 0, sizeof(buf));
@@ -117,7 +115,6 @@ int main(int argc, char const *argv[]) {
 	memcpy(buf + ETHER_HEADER_LEN, arp_packet, ETHER_ARP_LEN);
 
 
-
 	struct sockaddr_ll send_addr;
 	memset(&send_addr, 0, sizeof(send_addr));
     send_addr.sll_family = AF_PACKET;
@@ -127,13 +124,26 @@ int main(int argc, char const *argv[]) {
     send_addr.sll_halen = 0x06;
     memset(send_addr.sll_addr, 0xff, 6);
 
-
 	int sock_r;
     socket_init(sock_r);
 
 	if (sendto(sock_r, buf, ETHER_ARP_PACKET_LEN, 0, (struct sockaddr*) &send_addr, sizeof(send_addr)) < 0) {
 		cout << "Sendto Error!\n";	
 	}
+	
+	struct timeval tv = { 2, 0 };
+	if (setsockopt(sock_r, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
+		cout << "Error on recv_socket!\n";
+	}
+	unsigned char rbuf[80];
+	if (recvfrom(sock_r, rbuf, sizeof(rbuf), 0, NULL, NULL) < 0) {
+		cout << "Nothing got or error!\n";
+	}
+	for (int i = 6; i < 6 + ETH_ALEN; i++) {
+		if (i != 6) cout << ":";
+		cout << setw(2) << setfill('0') << uppercase << hex << (unsigned int)((unsigned char) rbuf[i]);
+	}
+	cout << '\n';
 
     cout << "Avalible devices:\n";    
     cout << "--------------------------------------\n";
