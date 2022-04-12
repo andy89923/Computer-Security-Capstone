@@ -78,7 +78,12 @@ void getInfo(char* IP, unsigned char* MC, int& index) {
 }
 
 
-int main(int argc, char const *argv[]) {	
+int main(int argc, char const *argv[]) {
+
+    cout << "Avalible devices:\n";    
+    cout << "--------------------------------------\n";
+    cout << "IP                   MAC              \n";    
+    cout << "--------------------------------------\n";
 
 	unsigned char dst_mac_addr[ETH_ALEN] = BROADCAST_ADDR;
 	unsigned char src_mac_addr[ETH_ALEN];
@@ -87,9 +92,7 @@ int main(int argc, char const *argv[]) {
 	int index;
 	
 	getInfo(src_ip, src_mac_addr, index);
-
 	for (int i = 0; i < 3; i++) dst_ip[i] = src_ip[i];
-	dst_ip[3] = 127;
 
 	char buf[ETHER_ARP_PACKET_LEN];
 	memset(buf, 0, sizeof(buf));
@@ -110,11 +113,9 @@ int main(int argc, char const *argv[]) {
 	memcpy(arp_packet -> arp_sha, src_mac_addr, ETH_ALEN);
 	memcpy(arp_packet -> arp_tha, dst_mac_addr, ETH_ALEN);
 	memcpy(arp_packet -> arp_spa, src_ip, IP_ADDR_LEN);
-	memcpy(arp_packet -> arp_tpa, dst_ip, IP_ADDR_LEN);
-
-	memcpy(buf + ETHER_HEADER_LEN, arp_packet, ETHER_ARP_LEN);
 
 
+	// Sockaddr
 	struct sockaddr_ll send_addr;
 	memset(&send_addr, 0, sizeof(send_addr));
     send_addr.sll_family = AF_PACKET;
@@ -124,33 +125,44 @@ int main(int argc, char const *argv[]) {
     send_addr.sll_halen = 0x06;
     memset(send_addr.sll_addr, 0xff, 6);
 
-	int sock_r;
-    socket_init(sock_r);
 
-	if (sendto(sock_r, buf, ETHER_ARP_PACKET_LEN, 0, (struct sockaddr*) &send_addr, sizeof(send_addr)) < 0) {
-		cout << "Sendto Error!\n";	
-	}
-	
-	struct timeval tv = { 2, 0 };
-	if (setsockopt(sock_r, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
-		cout << "Error on recv_socket!\n";
-	}
-	unsigned char rbuf[80];
-	if (recvfrom(sock_r, rbuf, sizeof(rbuf), 0, NULL, NULL) < 0) {
-		cout << "Nothing got or error!\n";
-	}
-	for (int i = 6; i < 6 + ETH_ALEN; i++) {
-		if (i != 6) cout << ":";
-		cout << setw(2) << setfill('0') << uppercase << hex << (unsigned int)((unsigned char) rbuf[i]);
-	}
-	cout << '\n';
+    for (int i = 2; i < 254; i++) {
+    	memset(buf, 0, sizeof(buf));
 
-    cout << "Avalible devices:\n";    
-    cout << "--------------------------------------\n";
-    cout << "IP                   MAC              \n";    
-    cout << "--------------------------------------\n";
+		dst_ip[3] = i;
+		memcpy(arp_packet -> arp_tpa, dst_ip, IP_ADDR_LEN);
+		memcpy(buf + ETHER_HEADER_LEN, arp_packet, ETHER_ARP_LEN);
 
+		int sock_r;
+	    socket_init(sock_r);
 
+		if (sendto(sock_r, buf, ETHER_ARP_PACKET_LEN, 0, (struct sockaddr*) &send_addr, sizeof(send_addr)) < 0) {
+			cout << "Sendto Error!\n";	
+		}
+		
+		struct timeval tv = { 2, 0 };
+		if (setsockopt(sock_r, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
+			cout << "Error on recv_socket!\n";
+		}
+		unsigned char rbuf[80];
+		if (recvfrom(sock_r, rbuf, sizeof(rbuf), 0, NULL, NULL) < 0) {
+			// cout << "Nothing got or error!\n";
+			continue;
+		}
+		for (int i = 0; i < 4; i++) {
+			if (i != 0) cout << '.';
+			cout << dst_ip[i];
+		}
+		cout << '\b';
+		
+		for (int i = 6; i < 6 + ETH_ALEN; i++) {
+			if (i != 6) cout << ":";
+			cout << setw(2) << setfill('0') << uppercase << hex << (unsigned int)((unsigned char) rbuf[i]);
+		}
+		cout << '\n';
+
+		break;
+	}
 
 	close(sock_r);
     return 0;
