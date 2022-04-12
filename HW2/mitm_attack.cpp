@@ -3,67 +3,137 @@
 #include <cstring>
 #include <ctime>
 
-#include <arpa/inet.h>    // inet_addr() ....
+
+#include <netinet/if_ether.h>
+#include <netinet/in.h>
+
+#include <net/if.h>
+#include <net/ethernet.h>
+#include <net/if_arp.h>
 #include <netdb.h>        // hostent
+
+#include <arpa/inet.h>    // inet_addr() ....
+
 #include <linux/if_ether.h>
+#include <linux/if_packet.h>
+
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/ioctl.h>
 #include <sys/unistd.h>   // int gethostname(char *name, size_t len);
 using namespace std;
 
-// https://codeantenna.com/a/dFN06QiPaL
-
-struct arp_packet {
-    // Ethernet 
-    char dest_MAC[6];
-    char srce_MAC[6];
-    char type[2];
-
-    // ARP 
-    char hdw_typ[2];
-    char pto_typ[2];
-    char hdw_siz;
-    char pto_siz;
-    char opcode[2];
-
-    char src_MAC[6];
-    int32_t src_IP;
-    char dst_MAC[6];
-    int32_t dst_IP;
-};
+#define BROADCAST_ADDR {0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+#define ETH_ALEN 6
+#define IP_ADDR_LEN 4
+#define ETHER_HEADER_LEN sizeof(struct ether_header)
+#define ETHER_ARP_LEN sizeof(struct ether_arp)
+#define ETHER_ARP_PACKET_LEN ETHER_HEADER_LEN+ETHER_ARP_LEN
 
 void socket_init(int& sock_r) {
-    sock_r = socket(AF_PACKET, SOCK_RAW, ETH_P_ARP);
+    sock_r = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ARP));
 	
     if (sock_r < 0) {
         cout << "Error on socket init!\n";
         exit(1);
     }
-
-	struct timeval tv = { 3, 0 };      //set receive timeout 4s
-    int one = 1;
-    if (setsockopt(sock_r, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 1) {
-        cout << "Fail to Set IP_HDRINCL\n";
-        exit(2);
-    }
 }
 
-int main(int argc, char const *argv[]) {
-    int sock_r;
-    // socket_init(sock_r);
+#define IFNAME "ens33"
 
-    char hostname[15];
-	gethostname(hostname, 15);
+void getInfo(char* IP, unsigned char* MC, int& index) {
+	string ss = IFNAME;
+	char* eth_name = &ss[0];
 
-	cout << hostname << '\n';
-	hostent* host = nullptr;
+	struct ifreq ifr;
+	int sock_r = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sock_r < 0) {
+		cout << "Error on socket init!\n";
+		exit(1);
+	}
+	strncpy(ifr.ifr_name, (char*) eth_name, sizeof(ifr.ifr_name));
 
-	host = gethostbyname(hostname);
-	struct in_addr ipaddr;
+	if (ioctl(sock_r, SIOCGIFADDR, &ifr) < 0) {
+		cout << "Error on itoctl -- IP\n";
+		exit(1);
+	}
+	memcpy(IP, ifr.ifr_addr.sa_data + 2, 4);
+	// IP = inet_ntoa(((struct sockaddr_in *)&(ifr.ifr_addr))->sin_addr);
 
-	ipaddr.s_addr = *(uint32_t*) (host -> h_addr);
-	cout << inet_ntoa(ipaddr) << '\n';
+	if (ioctl(sock_r, SIOCGIFINDEX, &ifr) < 0) {
+		cout << "Error on itoctl -- IINDEX\n";
+		exit(1);
+	}
+	// cout << "Index: " << ifr.ifr_ifindex << '\n';
+	index = ifr.ifr_ifindex;
 
+	if (ioctl(sock_r, SIOCGIFHWADDR, &ifr) < 0) {
+		cout << "Error on itoctl -- MAC\n";
+		exit(1);
+	}
+	memcpy(MC, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
+
+	close(sock_r);
+	// cout << "Get Info Finished\n";
+}
+
+
+int main(int argc, char const *argv[]) {	
+
+	unsigned char dst_mac_addr[ETH_ALEN] = BROADCAST_ADDR;
+	unsigned char src_mac_addr[ETH_ALEN];
+	struct in_addr src_in_addr, dst_in_addr;
+	char src_ip[4], dst_ip[4];
+	int index;
+	
+	dst_ip[0] = 192;
+	dst_ip[1] = 168;
+	dst_ip[2] = 0;
+	dst_ip[3] = 127;
+
+	getInfo(src_ip, src_mac_addr, index);
+
+	char buf[ETHER_ARP_PACKET_LEN];
+	memset(buf, 0, sizeof(buf));
+	
+	struct ether_header* eth_header = (struct ether_header*) buf;
+	memcpy(eth_header -> ether_shost, src_mac_addr, ETH_ALEN);
+	memcpy(eth_header -> ether_dhost, dst_mac_addr, ETH_ALEN);
+	eth_header -> ether_type = htons(ETHERTYPE_ARP);	
+
+	struct ether_arp* arp_packet = (struct ether_arp*) malloc(ETHER_ARP_LEN);
+
+	arp_packet -> arp_hrd = htons(ARPHRD_ETHER);
+	arp_packet -> arp_pro = htons(ETHERTYPE_IP);
+	arp_packet -> arp_hln = ETH_ALEN;
+	arp_packet -> arp_pln = IP_ADDR_LEN;
+	arp_packet -> arp_op  = htons(ARPOP_REQUEST);
+
+	memcpy(arp_packet -> arp_sha, src_mac_addr, ETH_ALEN);
+	memcpy(arp_packet -> arp_tha, dst_mac_addr, ETH_ALEN);
+	memcpy(arp_packet -> arp_spa, src_ip, IP_ADDR_LEN);
+	memcpy(arp_packet -> arp_tpa, dst_ip, IP_ADDR_LEN);
+
+	memcpy(buf + ETHER_HEADER_LEN, arp_packet, ETHER_ARP_LEN);
+
+
+
+	struct sockaddr_ll send_addr;
+	memset(&send_addr, 0, sizeof(send_addr));
+    send_addr.sll_family = AF_PACKET;
+    send_addr.sll_protocol = htons(ETH_P_ARP);
+    send_addr.sll_pkttype = PACKET_BROADCAST;
+    send_addr.sll_ifindex = index;
+    send_addr.sll_halen = 0x06;
+    memset(send_addr.sll_addr, 0xff, 6);
+
+
+	int sock_r;
+    socket_init(sock_r);
+
+	if (sendto(sock_r, buf, ETHER_ARP_PACKET_LEN, 0, (struct sockaddr*) &send_addr, sizeof(send_addr)) < 0) {
+		cout << "Sendto Error!\n";	
+	}
 
     cout << "Avalible devices:\n";    
     cout << "--------------------------------------\n";
