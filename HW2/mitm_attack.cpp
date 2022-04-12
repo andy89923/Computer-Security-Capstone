@@ -82,7 +82,7 @@ int main(int argc, char const *argv[]) {
 
     cout << "Avalible devices:\n";    
     cout << "--------------------------------------\n";
-    cout << "IP                   MAC              \n";    
+    cout << "IP                MAC                 \n";    
     cout << "--------------------------------------\n";
 
 	unsigned char dst_mac_addr[ETH_ALEN] = BROADCAST_ADDR;
@@ -125,22 +125,18 @@ int main(int argc, char const *argv[]) {
     send_addr.sll_halen = 0x06;
     memset(send_addr.sll_addr, 0xff, 6);
 
-
+	int sock_r;
+	socket_init(sock_r);
     for (int i = 2; i < 254; i++) {
-    	memset(buf, 0, sizeof(buf));
-
 		dst_ip[3] = i;
 		memcpy(arp_packet -> arp_tpa, dst_ip, IP_ADDR_LEN);
 		memcpy(buf + ETHER_HEADER_LEN, arp_packet, ETHER_ARP_LEN);
-
-		int sock_r;
-	    socket_init(sock_r);
 
 		if (sendto(sock_r, buf, ETHER_ARP_PACKET_LEN, 0, (struct sockaddr*) &send_addr, sizeof(send_addr)) < 0) {
 			cout << "Sendto Error!\n";	
 		}
 		
-		struct timeval tv = { 2, 0 };
+		struct timeval tv = { 1, 0 };
 		if (setsockopt(sock_r, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
 			cout << "Error on recv_socket!\n";
 		}
@@ -149,19 +145,24 @@ int main(int argc, char const *argv[]) {
 			// cout << "Nothing got or error!\n";
 			continue;
 		}
-		for (int i = 0; i < 4; i++) {
-			if (i != 0) cout << '.';
-			cout << dst_ip[i];
+		int ok = 1;
+		for (int j = 28, k = 0; j < 28 + 4; j++, k++) {
+			if (rbuf[j] != dst_ip[k]) ok = false; 
 		}
-		cout << '\b';
+		if (!ok) continue;
+
+		string ss = "";
+		for (int j = 0; j < 4; j++) {
+			if (j != 0) ss = ss +  '.';
+			ss = ss + to_string((unsigned int) ((unsigned char) dst_ip[j]));
+		}
+		cout << setfill(' ') << setw(18) << left << ss;
 		
-		for (int i = 6; i < 6 + ETH_ALEN; i++) {
-			if (i != 6) cout << ":";
-			cout << setw(2) << setfill('0') << uppercase << hex << (unsigned int)((unsigned char) rbuf[i]);
+		for (int j = 6; j < 6 + ETH_ALEN; j++) {
+			if (j != 6) cout << ":";
+			cout << setw(2) << setfill('0') << uppercase << hex << (unsigned int)((unsigned char) rbuf[j]);
 		}
 		cout << '\n';
-
-		break;
 	}
 
 	close(sock_r);
