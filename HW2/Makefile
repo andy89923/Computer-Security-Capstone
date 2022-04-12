@@ -1,4 +1,4 @@
-CXX=g++
+CXX=g++ -lpthread
 
 MITM_NAME=mitm_attack
 MITM_FILE_NAME=mitm_attack.cpp
