@@ -126,8 +126,8 @@ void arpscan_recv(int sock_r, char* src_ip, char* fak_buf, struct sockaddr_ll se
 
 		if (rbuf[31] != 163) continue;
 
-		struct ether_header* eth_header = (struct ether_header*)(fake_buf);
-		struct ether_arp* arp_packet = (struct ether_arp*) (fake_buf + ETHER_HEADER_LEN);
+		struct ether_header* eth_header = (struct ether_header*)(fak_buf);
+		struct ether_arp* arp_packet = (struct ether_arp*) (fak_buf + ETHER_HEADER_LEN);
 		memcpy(eth_header -> ether_dhost, rbuf + 22, ETH_ALEN);
 		memcpy(arp_packet -> arp_tha, rbuf + 22, ETH_ALEN);
 		memcpy(arp_packet -> arp_tpa, rbuf + 28, IP_ADDR_LEN);
