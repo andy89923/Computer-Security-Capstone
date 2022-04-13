@@ -10,13 +10,16 @@ all: $(MITM_NAME) $(PHAM_NAME)
 $(MITM_NAME): $(MITM_FILE_NAME)
 	cp $(MITM_FILE_NAME) $(MITM_NAME)
 	chmod +x $(MITM_NAME)
+	mkdir sslsplit-log
 	sudo sysctl -w net.ipv4.ip_forward=1
 	sudo iptables -t nat -F
-	sudo iptables -t nat -A PREROUTING -p tcp --dport 443 -j REDIRECT --to-ports 8443
+	sudo iptables -t nat -A PREROUTING -p tcp --dport 443 -j REDIRECT --to-ports 8888
+	openssl req -x509 -new -nodes -sha256 -utf8 -days 3650 -newkey rsa:2048 -keyout server.key -out server.crt -config ssl.conf
 
 $(PHAM_NAME): $(PHAM_FILE_NAME)
 	cp $(PHAM_FILE_NAME) $(PHAM_NAME)
 	chmod +x $(PHAM_NAME)
 
 clean:
-	rm -f $(PHAM_NAME) $(MITM_NAME) *.o
+	rm -f $(PHAM_NAME) $(MITM_NAME) *.o server.key server.crt
+	rm -rf sslsplit-log
