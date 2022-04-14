@@ -23,3 +23,7 @@ $(PHAM_NAME): $(PHAM_FILE_NAME)
 clean:
 	sudo rm -f $(PHAM_NAME) $(MITM_NAME) *.o server.key server.crt
 	sudo rm -rf sslsplit-log
+
+zip:
+	zip 0816153.zip Makefile $(MITM_FILE_NAME) $(PHAM_FILE_NAME) report.pdf && \
+	echo "\nZip file successfully build!"
