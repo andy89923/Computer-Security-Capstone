@@ -21,8 +21,6 @@ $(PHAM_NAME): $(PHAM_FILE_NAME)
 	chmod +x $(PHAM_NAME)
 
 clean:
-	sudo iptables -D FORWARD -j NFQUEUE --queue-num 23 -p udp --sport 53
-	sudo iptables -D FORWARD -j REJECT -p tcp --sport 53
 	sudo rm -f $(PHAM_NAME) $(MITM_NAME) *.o server.key server.crt
 	sudo rm -rf sslsplit-log
 
