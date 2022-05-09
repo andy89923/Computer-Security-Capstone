@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin python3
 
 # The program is used to launch attacker server. The port to use 
 # have to define when program launching.
