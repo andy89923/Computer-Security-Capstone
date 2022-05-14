@@ -30,5 +30,5 @@ clean:
 	rm -f $(APP_SEV) $(APP_CRK) fake_cat cat.xz
 
 zip:
-	zip 0816153.zip Makefile $(APP_CRK_FILE) $(APP_SEV_FILE) encrypt_code && \
+	zip 0816153.zip Makefile $(APP_CRK_FILE) $(APP_SEV_FILE) encrypt_code cat && \
 	echo "\nZip file successfully build!"
